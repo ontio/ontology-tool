@@ -171,8 +171,8 @@ type SetOperatorParam struct {
 	Operator                  string   `json:"Operator"`
 }
 
-func SetOntParamAdmin(ontSdk *sdk.OntologySdk) bool {
-	data, err := ioutil.ReadFile("./params/SetOntParamAdmin.json")
+func SetOntParamOperator(ontSdk *sdk.OntologySdk) bool {
+	data, err := ioutil.ReadFile("./params/SetOntParamOperator.json")
 	if err != nil {
 		log4.Error("ioutil.ReadFile failed ", err)
 		return false
@@ -215,17 +215,18 @@ func SetOntParamAdmin(ontSdk *sdk.OntologySdk) bool {
 		pubKeys = append(pubKeys, k)
 	}
 
-	newAdmin, err := ocommon.AddressFromBase58(input.Admin)
+	newop, err := ocommon.AddressFromBase58(input.Operator)
 	if err != nil {
-		log4.Debug("can not get new admin address", newAdmin)
+		log4.Debug("can not get new admin address", err)
 		return false
 	}
 
-	txHash, err := common.InvokeNativeContractWithMultiSign(ontSdk, config.DefConfig.GasPrice, config.DefConfig.GasLimit, pubKeys, users, governance.OntIDVersion, ontutils.ParamContractAddress, global_params.ACCEPT_ADMIN_NAME, []interface{}{newAdmin})
+	txHash, err := common.InvokeNativeContractWithMultiSign(ontSdk, config.DefConfig.GasPrice, config.DefConfig.GasLimit, pubKeys, users, governance.OntIDVersion, ontutils.ParamContractAddress, global_params.SET_OPERATOR, []interface{}{newop})
 	if err != nil {
 		log4.Error("invokeNativeContract error :", err)
 		return false
 	}
-	log4.Info("AcceptOntParamAdmin txHash is :", txHash.ToHexString())
+
+	log4.Info("SetOntParamOperator txHash is :", txHash.ToHexString())
 	return true
 }

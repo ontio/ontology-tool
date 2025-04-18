@@ -25,5 +25,5 @@ import (
 func RegisterGlobalParam() {
 	core.OntTool.RegMethod("TransferOntParamAdmin", TransferGlobalParamAdmin)
 	core.OntTool.RegMethod("AcceptOntParamAdmin", AcceptGlobalParamAdmin)
-	core.OntTool.RegMethod("SetOntParamAdmin", SetOntParamAdmin)
+	core.OntTool.RegMethod("SetOntParamOperator", SetOntParamOperator)
 }

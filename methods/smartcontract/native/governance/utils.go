@@ -296,14 +296,15 @@ func withdrawOng(ontSdk *sdk.OntologySdk, user *sdk.Account) bool {
 		Address: user.Address,
 	}
 	contractAddress := utils.GovernanceContractAddress
-	method := "withdrawOng"
+	// 20250418, replace origin method, legacy method is deprecated
+	method := "withdrawFee"
 	txHash, err := ontSdk.Native.InvokeNativeContract(config.DefConfig.GasPrice, config.DefConfig.GasLimit,
 		user, user, OntIDVersion, contractAddress, method, []interface{}{params})
 	if err != nil {
 		log4.Error("invokeNativeContract error :", err)
 		return false
 	}
-	log4.Info("withdrawOng txHash is :", txHash.ToHexString())
+	log4.Info("withdrawFee txHash is :", txHash.ToHexString())
 	return true
 }
 

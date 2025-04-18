@@ -35,7 +35,7 @@ import (
 	"github.com/ontio/ontology-tool/common"
 	ocommon "github.com/ontio/ontology/common"
 	"github.com/ontio/ontology/common/password"
-	"github.com/ontio/ontology/consensus/vbft/config"
+	vconfig "github.com/ontio/ontology/consensus/vbft/config"
 	"github.com/ontio/ontology/core/types"
 	"github.com/ontio/ontology/smartcontract/service/native/governance"
 	"github.com/ontio/ontology/smartcontract/service/native/utils"
@@ -1545,6 +1545,18 @@ func GetAddressMultiSign(ontSdk *sdk.OntologySdk) bool {
 		log4.Error("types.AddressFromMultiPubKeys error", err)
 	}
 	fmt.Println("address is:", from.ToBase58())
+	// rongyi, also get ong/ont balance
+	ont, err := ontSdk.Native.Ont.BalanceOf(from)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("ont balance: %d\n", ont)
+	ong, err := ontSdk.Native.Ong.BalanceOf(from)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("ong balance: %d\n", ong)
+
 	return true
 }
 
@@ -2019,8 +2031,9 @@ func GetSplitFeeAddress(ontSdk *sdk.OntologySdk) bool {
 		log4.Error("getSplitFeeAddress failed ", err)
 		return false
 	}
-	fmt.Println("splitFeeAddress.Address is:", splitFeeAddress.Address)
+	fmt.Println("splitFeeAddress.Address is:", splitFeeAddress.Address.ToBase58())
 	fmt.Println("splitFeeAddress.Amount is:", splitFeeAddress.Amount)
+	fmt.Printf("splitFeeAddress.Amount with precision is: %.4f\n", float64(splitFeeAddress.Amount)/float64(1e9))
 
 	return true
 }

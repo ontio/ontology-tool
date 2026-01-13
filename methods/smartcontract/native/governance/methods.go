@@ -33,9 +33,10 @@ import (
 	"github.com/ontio/ontology-crypto/vrf"
 	sdk "github.com/ontio/ontology-go-sdk"
 	"github.com/ontio/ontology-tool/common"
+	"github.com/ontio/ontology-tool/config"
 	ocommon "github.com/ontio/ontology/common"
 	"github.com/ontio/ontology/common/password"
-	"github.com/ontio/ontology/consensus/vbft/config"
+	vconfig "github.com/ontio/ontology/consensus/vbft/config"
 	"github.com/ontio/ontology/core/types"
 	"github.com/ontio/ontology/smartcontract/service/native/governance"
 	"github.com/ontio/ontology/smartcontract/service/native/utils"
@@ -159,6 +160,40 @@ func AssignOntIDsToRole(ontSdk *sdk.OntologySdk) bool {
 		return false
 	}
 	common.WaitForBlock(ontSdk)
+	return true
+}
+
+type BurnOngParam struct {
+	WalletPath string
+}
+
+func BurnOng(ontsdk *sdk.OntologySdk) bool {
+	data, err := ioutil.ReadFile("./params/BurnOng.json")
+	if err != nil {
+		log4.Error("ioutil.ReadFile failed ", err)
+		return false
+	}
+	curParam := &BurnOngParam{}
+	err = json.Unmarshal(data, curParam)
+	if err != nil {
+		log4.Error("json.Unmarshal failed ", err)
+		return false
+	}
+	time.Sleep(1 * time.Second)
+	// just a normal wallet
+	act, ok := common.GetAccountByPassword(ontsdk, curParam.WalletPath)
+	if !ok {
+		return false
+	}
+
+	txHash, err := ontsdk.Native.InvokeNativeContract(config.DefConfig.GasPrice, config.DefConfig.GasLimit, act, act, sdk.ONG_CONTRACT_VERSION, utils.OngContractAddress, "burnOng", []interface{}{})
+
+	if err != nil {
+		log4.Error("BurnOng error :", err)
+		return false
+	}
+	log4.Info("BurnOng txHash is :", txHash.ToHexString())
+	common.WaitForBlock(ontsdk)
 	return true
 }
 
@@ -869,10 +904,54 @@ func UpdateGlobalParam(ontSdk *sdk.OntologySdk) bool {
 	return true
 }
 
+type SetGasAddressParam struct {
+	Path    []string
+	Address string
+}
+
+func SetGasAddress(ontSdk *sdk.OntologySdk) bool {
+	data, err := ioutil.ReadFile("./params/SetGasAddress.json")
+	if err != nil {
+		log4.Error("ioutil.ReadFile failed ", err)
+		return false
+	}
+	inputArg := new(SetGasAddressParam)
+	err = json.Unmarshal(data, inputArg)
+	if err != nil {
+		log4.Error("json.Unmarshal failed ", err)
+		return false
+	}
+
+	gd := &governance.GasAddress{}
+	gd.Address, err = ocommon.AddressFromBase58(inputArg.Address)
+	if err != nil {
+		panic(err)
+	}
+
+	var users []*sdk.Account
+	var pubKeys []keypair.PublicKey
+	time.Sleep(1 * time.Second)
+	for _, path := range inputArg.Path {
+		user, ok := common.GetAccountByPassword(ontSdk, path)
+		if !ok {
+			return false
+		}
+		users = append(users, user)
+		pubKeys = append(pubKeys, user.PublicKey)
+	}
+	ok := setGasAddress(ontSdk, pubKeys, users, gd)
+	if !ok {
+		return false
+	}
+	common.WaitForBlock(ontSdk)
+	return true
+}
+
 type UpdateGlobalParamParam2 struct {
 	Path                 []string
 	MinAuthorizePos      uint32
 	CandidateFeeSplitNum uint32
+	DappFee              uint32
 }
 
 func UpdateGlobalParam2(ontSdk *sdk.OntologySdk) bool {
@@ -901,6 +980,7 @@ func UpdateGlobalParam2(ontSdk *sdk.OntologySdk) bool {
 	globalParam2 := &governance.GlobalParam2{
 		MinAuthorizePos:      updateGlobalParamParam2.MinAuthorizePos,
 		CandidateFeeSplitNum: updateGlobalParamParam2.CandidateFeeSplitNum,
+		DappFee:              updateGlobalParamParam2.DappFee,
 	}
 	ok := updateGlobalParam2MultiSign(ontSdk, pubKeys, users, globalParam2)
 	if !ok {
@@ -1092,6 +1172,12 @@ func GetGlobalParam2(ontSdk *sdk.OntologySdk) bool {
 	}
 	fmt.Println("globalParam2.MinAuthorizePos is:", globalParam2.MinAuthorizePos)
 	fmt.Println("globalParam2.CandidateFeeSplitNum is:", globalParam2.CandidateFeeSplitNum)
+	fmt.Println("globalParam2.DappFee is:", globalParam2.DappFee)
+	fmt.Println("globalParam2.Field2 is:", hex.EncodeToString(globalParam2.Field2))
+	fmt.Println("globalParam2.Field3 is:", hex.EncodeToString(globalParam2.Field3))
+	fmt.Println("globalParam2.Field4 is:", hex.EncodeToString(globalParam2.Field4))
+	fmt.Println("globalParam2.Field5 is:", hex.EncodeToString(globalParam2.Field5))
+	fmt.Println("globalParam2.Field6 is:", hex.EncodeToString(globalParam2.Field6))
 	return true
 }
 
@@ -1209,6 +1295,16 @@ func GetAuthorizeInfo(ontSdk *sdk.OntologySdk) bool {
 	fmt.Println("authorizeInfo.WithdrawConsensusPos is:", authorizeInfo.WithdrawConsensusPos)
 	fmt.Println("authorizeInfo.WithdrawCandidatePos is:", authorizeInfo.WithdrawCandidatePos)
 	fmt.Println("authorizeInfo.WithdrawUnfreezePos is:", authorizeInfo.WithdrawUnfreezePos)
+	return true
+}
+
+func GetOngTotalSupply(ontSdk *sdk.OntologySdk) bool {
+	currentOngBalance, err := ontSdk.Native.Ong.TotalSupply()
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("current ONG total supply: %d\n", currentOngBalance)
+
 	return true
 }
 
@@ -1545,6 +1641,18 @@ func GetAddressMultiSign(ontSdk *sdk.OntologySdk) bool {
 		log4.Error("types.AddressFromMultiPubKeys error", err)
 	}
 	fmt.Println("address is:", from.ToBase58())
+	// rongyi, also get ong/ont balance
+	ont, err := ontSdk.Native.Ont.BalanceOf(from)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("ont balance: %d\n", ont)
+	ong, err := ontSdk.Native.Ong.BalanceOf(from)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("ong balance: %d\n", ong)
+
 	return true
 }
 
@@ -2019,8 +2127,9 @@ func GetSplitFeeAddress(ontSdk *sdk.OntologySdk) bool {
 		log4.Error("getSplitFeeAddress failed ", err)
 		return false
 	}
-	fmt.Println("splitFeeAddress.Address is:", splitFeeAddress.Address)
+	fmt.Println("splitFeeAddress.Address is:", splitFeeAddress.Address.ToBase58())
 	fmt.Println("splitFeeAddress.Amount is:", splitFeeAddress.Amount)
+	fmt.Printf("splitFeeAddress.Amount with precision is: %.4f\n", float64(splitFeeAddress.Amount)/float64(1e9))
 
 	return true
 }

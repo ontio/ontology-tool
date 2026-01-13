@@ -10,6 +10,7 @@ import (
 	"github.com/ontio/ontology-tool/common"
 	"github.com/ontio/ontology-tool/config"
 	ontcommon "github.com/ontio/ontology/common"
+	"github.com/ontio/ontology/common/log"
 	"github.com/ontio/ontology/common/serialization"
 	"github.com/ontio/ontology/core/types"
 	"github.com/ontio/ontology/errors"
@@ -296,14 +297,15 @@ func withdrawOng(ontSdk *sdk.OntologySdk, user *sdk.Account) bool {
 		Address: user.Address,
 	}
 	contractAddress := utils.GovernanceContractAddress
-	method := "withdrawOng"
+	// 20250418, replace origin method, legacy method is deprecated
+	method := "withdrawFee"
 	txHash, err := ontSdk.Native.InvokeNativeContract(config.DefConfig.GasPrice, config.DefConfig.GasLimit,
 		user, user, OntIDVersion, contractAddress, method, []interface{}{params})
 	if err != nil {
 		log4.Error("invokeNativeContract error :", err)
 		return false
 	}
-	log4.Info("withdrawOng txHash is :", txHash.ToHexString())
+	log4.Info("withdrawFee txHash is :", txHash.ToHexString())
 	return true
 }
 
@@ -480,6 +482,18 @@ func updateGlobalParam2(ontSdk *sdk.OntologySdk, user *sdk.Account, globalParam2
 		return false
 	}
 	log4.Info("updateGlobalParam2 txHash is :", txHash.ToHexString())
+	return true
+}
+
+func setGasAddress(ontSdk *sdk.OntologySdk, pubKeys []keypair.PublicKey, users []*sdk.Account, toAddr *governance.GasAddress) bool {
+	contractAddress := utils.GovernanceContractAddress
+	txHash, err := common.InvokeNativeContractWithMultiSign(ontSdk, config.DefConfig.GasPrice, config.DefConfig.GasLimit, pubKeys, users, OntIDVersion,
+		contractAddress, governance.SET_GAS_ADDRESS, []interface{}{toAddr})
+	if err != nil {
+		log4.Error("invokeNativeContract error :", err)
+		return false
+	}
+	log4.Info("setGasAddress txHash is :", txHash.ToHexString())
 	return true
 }
 
@@ -702,7 +716,7 @@ func transferOngMultiSign(ontSdk *sdk.OntologySdk, pubKeys []keypair.PublicKey, 
 	sts = append(sts, ont.State{
 		From:  from,
 		To:    address,
-		Value: amount,
+		Value: amount, //
 	})
 	transfers := ont.Transfers{
 		States: sts,
@@ -903,6 +917,7 @@ func getGlobalParam2(ontSdk *sdk.OntologySdk) (*governance.GlobalParam2, error) 
 	globalParam2 := new(governance.GlobalParam2)
 	key := []byte(governance.GLOBAL_PARAM2)
 	value, err := ontSdk.GetStorage(contractAddress.ToHexString(), key)
+	log.Infof("raw input: %s", hex.EncodeToString(value))
 	if err != nil {
 		return nil, errors.NewDetailErr(err, errors.ErrNoCode, "getStorage error")
 	}
